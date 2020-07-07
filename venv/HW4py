@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 27 18:34:51 2018
+
+@author: brianmatejevich
+"""
+
+import os, cv2 , numpy as np
+mapFolder = "/Users/brianmatejevich/Desktop/hw04files/map/"
+mapPieces = "/Users/brianmatejevich/Desktop/hw04files/map/pieces_aligned/"
+mapPiecesRandom = "/Users/brianmatejevich/Desktop/hw04files/map/pieces_random/"
+hawaiiFolder = "/Users/brianmatejevich/Desktop/hw04files/hawaii/"
+hawaiiPieces = "/Users/brianmatejevich/Desktop/hw04files/hawaii/pieces_aligned/"
+hawaiiPiecesRandom = "/Users/brianmatejevich/Desktop/hw04files/hawaii/pieces_random/"
+trainsFolder = "/Users/brianmatejevich/Desktop/hw04files/trains/"
+trainsPieces = "/Users/brianmatejevich/Desktop/hw04files/trains/pieces_aligned/"
+trainsPiecesRandom = "/Users/brianmatejevich/Desktop/hw04files/trains/pieces_random/"
+
+#make a puzzle of piecePerSide squared pieces of an img
+def makePuzzle(img,squareRootOfPieces):
+    rows,cols = img.shape[:2]
+    piecePerSide = squareRootOfPieces
+    counter1 = 0
+    counter2 = 0
+    pieceWidth = cols//piecePerSide
+    pieceHeight = rows//piecePerSide
+    pieceList = []
+    while counter1 < piecePerSide:
+        startY = counter1 * pieceHeight
+        while counter2 < piecePerSide:
+            startX = counter2 * pieceWidth
+            piece = img[startY:pieceHeight + startY,startX:startX + pieceWidth]
+            counter2 = counter2 + 1
+            pieceList.append(piece)
+        counter2 = 0
+        counter1 = counter1 + 1
+    return pieceList
+        
+#load in a folder of images and put them in a list
+def load(folder):
+    images = []
+    for picture in os.listdir(folder):
+        img = cv2.imread(os.path.join(folder,picture))
+        if img is not None:
+            images.append(img)
+    return images
+
+#rotate image by degrees
+def rotate(img,degree):
+    rows,cols = img.shape[:2]
+    imgCenter = (cols//2,rows//2)
+    M = cv2.getRotationMatrix2D(imgCenter,degree,1.0)
+    imgRotated = cv2.warpAffine(img,M,(cols,rows))
+    return imgRotated
+
+
+
+def buildPuzzle(img2,img3):
+    for piece in imgList:
+        # Copy images for later display
+        img1 = piece
+        # convert to grayscale images
+        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        
+        # SIFT settings
+        nFeatures = 0
+        nOctaveLayers = 9
+        contrastThreshold = .0009  # Threshold to filter out weak features
+        edgeThreshold = 15  # Threshold to filter out edges (lower is stricter)
+        sigma = 1.3  # The gaussian std dev at octave zero
+        
+        # Create SIFT object
+        sift = cv2.xfeatures2d.SIFT_create(nFeatures, nOctaveLayers, contrastThreshold,
+                                           edgeThreshold, sigma)
+        
+        # Detect keypoints and compute their descriptors
+        kp1, des1 = sift.detectAndCompute(gray1, None)
+        kp2, des2 = sift.detectAndCompute(gray2, None)
+        
+        if des2 is None:
+            print('No keypoints found for image 2')
+        else:
+            # Find matches between keypoints in the two images.
+            bf = cv2.BFMatcher()
+            matches = bf.match(des1, des2)
+            if len(matches) == 0:
+                print('No matches')
+            else:
+                matches = sorted(matches, key=lambda x:x.distance)
+                num_matches_to_show = 5
+                # Loop through the top matches
+                for i in range(num_matches_to_show):
+                    match = matches[i]
+                    
+                    curr_kp1 = kp1[match.queryIdx]  # get the keypoint for img1
+                    angle1 = curr_kp1.angle
+                    loc1 = curr_kp1.pt
+                    x1 = int(loc1[0])
+                    y1 = int(loc1[1])
+        
+                    curr_kp2 = kp2[match.trainIdx]  # get the keypoint for img2
+                    angle2 = curr_kp2.angle
+                    loc2 = curr_kp2.pt
+                    x2 = int(loc2[0])
+                    y2 = int(loc2[1])
+                
+                x = (x2//50)*50
+                y = (y2//50)*50
+                
+                angle = round(angle1 - angle2)
+                if angle < 0:
+                    angle = angle + 360
+                if angle > 70 and angle < 110:
+                    angle = 90
+                if angle > 160 and angle < 200:
+                    angle = 180
+                if angle > 250 and angle < 290:
+                    angle = 270
+                if angle < 20:
+                    angle = 0
+                else:
+                    angle = angle
+                piece = rotate(piece,angle)  
+                img3[y:y+50,x:x+50] = piece
+                cv2.imshow("working..." , img3)
+                cv2.waitKey(50)
+    return img3
+
+
+imgList = load(trainsPieces)
+boxList = load(trainsFolder)
+#change to 1 if map and 0 if hawaii and 0 if trains
+img2 = boxList[0]
+rows,cols = img2.shape[:2]
+img3 = cv2.merge((np.zeros([rows,cols]),np.zeros([rows,cols]),np.zeros([rows,cols])))
+img3 = img3.astype(np.uint8)
+img3 = buildPuzzle(img2,img3)
+
+cv2.imshow('Box Top', img2)
+cv2.imshow('Solved',img3)
+cv2.waitKey(0)
+
+
+#make your own puzzle
+#image_name = 'diablo.jpeg'
+#img = cv2.imread("diablo.jpeg")
+#puzzleList = makePuzzle(img,4)
+#
+#i = 0
+#while i < len(puzzleList):
+#    cv2.imshow("piece", puzzleList[i])
+#    cv2.waitKey(500)
+#    i = i + 1
